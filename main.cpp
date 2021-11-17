@@ -1,113 +1,94 @@
-#include <iostream>
-#include <string>
-#include <tuple>
-#include <vector>
-#include <map>
-#include <sstream>
-#include <fstream>
-using namespace std;
-
-class Category;
-class Product;
-template <class Entity> class DbSet;
-class TextDbContext;
-
-
-class Category {
-private:
-	int _categoryId;
-	string _categoryName;
-	vector<shared_ptr<Product>> _produtes;
-public:
-    int getCategoryId() { return _categoryId;}
-    string getCategoryName() { return _categoryName;}
-    vector<shared_ptr<Product>> getProducts() { return _produtes; }
-    void setCategoryID(int categoryId) { _categoryId = categoryId; }
-    void setCategoryName(int categoryName) { _categoryName = categoryName; }
-    void setProducts(vector<shared_ptr<Product>> products) { _produtes = products; }
-};
-
-class Product {
-private:
-	int _productId;
-	string _productName;
-	int _price;
-	shared_ptr<Category> _category;
-};
-
-template <class Entity>
-class DbSet {
-private:
-	string _filename;
-	typedef bool (*predicate)(Entity);
-public:
-    DbSet() {
-        this->_filename = "";
-    }
-    
-    DbSet(string filename) {
-        this->_filename = filename;
-    }
-    void setFileName(string filename) {
-        this->_filename = filename;
-    }
-    bool isValidFormat(string pattern);
-    
-    vector<Entity> all() {
-        vector<Entity> result;
-        ifstream fin(this->_filename);
-        string buffer;
-        while (!fin.eof()) {
-            getline(fin, buffer);
-            cout << buffer;
-        }
-        fin.close();
-        return result;
-    }
-	vector<Entity> find(predicate);
-};
-
-vector<string> split(string str,string del) {
-	vector<string> result;
-	unsigned long long start = 0;
-	unsigned long long end = str.find(del);
-	while (end != -1) {
-		result.push_back(str.substr(start, end - start));
-		start = end + del.size();
-		end = str.find(del, start);
-	}
-	result.push_back(str.substr(start, end - start));
-	return result;
-}
-
-class TextDbContext {
-private:
-	map<string, string> _filenames;
-public:
-    string getFileName( string fileName) { return _filenames[fileName]; }
-public:
-	DbSet<Category> Categories;
-	DbSet<Product> Products;
-	void parse(string filenames) {
-		vector<string> semicolonSlash;
-		semicolonSlash = split(filenames, "; ");
-		for (auto u : semicolonSlash) {
-			_filenames[split(u, "=")[0]] = split(u, "=")[1];
-		}
-	}
-	TextDbContext(string filenames) {
-		parse(filenames);
-	}
-};
-
-
-
+#include "ProductManager.hpp"
 
 int main() {
-    TextDbContext t("Category=categories.txt; Product=products.txt");
-    cout << t.getFileName("Product") << endl;
-    t.Products.setFileName(t.getFileName("Product"));
-    t.Products.all();
+    TextDbContext database("Category=/Users/macbookpro/Documents/Workspace/OOP/Project_W5/Project_W5/categories.txt; Product=/Users/macbookpro/Documents/Workspace/OOP/Project_W5/Project_W5/products.txt");
+    database.Products.setFileName(database.getFileName("Product"));
+    database.Categories.setFileName(database.getFileName("Category"));
+    vector<Product*> products = database.Products.all();
+    vector<Category*> categories = database.Categories.all();
+    bool flag = true;
+    while(flag) {
+        cout << "What do you want to do? \n" ;
+        cout << "1. Display all categories\n";
+        cout << "2. Find products by name\n";
+        cout << "3. Find products by price range\n";
+        cout << "0. Quit\n";
+        cout << "Please enter your choice: ";
+        int choices; cin >> choices;
+        switch (choices) {
+            case 1:
+            {
+                for (auto category : categories) {
+                    vector<shared_ptr<Product>> buffer;
+                    for (auto product : products ) {
+                        if (product->getCategory() == category->getId()) {
+                            shared_ptr<Product> temp(product);
+                            buffer.push_back(temp);
+                        }
+                    }
+                    category->setProducts(buffer);
+                }
+
+                for (auto category : categories) {
+                    int cnt = 1;
+                    cout << "Type " <<  category->getId()<< endl;
+                    vector<shared_ptr<Product>> temp = category->getProducts();
+                    for (auto u : temp) {
+                        cout << cnt++ <<". " << "Category: " << category->getName() << ", ID: " << u->getId() << ", Name: " << u->getName() << ", Price: " << u->getPrice() << endl;
+                    }
+                    cnt = 1;
+                }
+                break;
+            }
+            case 2:
+            {
+                string namesearch;
+                cout << "\nEnter Name: ";
+                cin.ignore();
+                getline(cin, namesearch);
+                auto result = database.Products.find(nameFilter, namesearch);
+                int cnt = 1;
+                bool isSuccess;
+                int error_code = 0;
+                string msg = "";
+                vector<Product*> products;
+                tie(isSuccess, error_code, msg, products) = result;
+                for (auto product : products) {
+                    cout << cnt++ <<". " << "Category: " << product->getName() << ", ID: " << product->getId() << ", Name: " << product->getName() << ", Price: " << product->getPrice() << endl;
+                }
+                break;
+            }
+            case 3:
+            {
+                string rangesearch;
+                cout << "\nEnter Range : ";
+                cin.ignore();
+                getline(cin, rangesearch);
+                cout << rangesearch[rangesearch.size() - 1];
+                auto result = database.Products.find(rangeFilter, rangesearch);
+                bool isSuccess;
+                int error_code = 0;
+                string msg = "";
+                vector<Product*> products;
+                tie(isSuccess, error_code, msg, products) = result;
+                if (isSuccess) {
+                    int cnt = 1;
+                    for (auto product : products) {
+                        cout << cnt++ <<". " << "Category: " << product->getName() << ", ID: " << product->getId() << ", Name: " << product->getName() << ", Price: " << product->getPrice() << endl;
+                    }
+                }
+                else {
+                    cout << msg << endl;
+                }
+                break;
+            }
+            case 0:
+                flag = 0;
+                break;
+            default:
+                break;
+        }
+    }
 	return 0;
 }
 
